@@ -1,0 +1,8 @@
+{
+  "id": "exporter-json",
+  "name": "CCD JSON",
+  "version": "1.0.0",
+  "coreApiVersion": "1.x",
+  "type": "export",
+  "permissionsNeeded": ["downloads"]
+}

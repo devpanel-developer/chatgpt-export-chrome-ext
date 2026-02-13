@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Chat Export Platform",
+  "description": "Export selected ChatGPT conversations through pluggable modules.",
+  "version": "0.1.0",
+  "permissions": ["storage", "downloads", "tabs"],
+  "host_permissions": ["https://chat.openai.com/*", "https://chatgpt.com/*", "https://www.googleapis.com/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://chat.openai.com/*", "https://chatgpt.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html"
+}
