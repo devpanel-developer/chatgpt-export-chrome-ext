@@ -1,0 +1,9 @@
+{
+  "id": "module-template",
+  "name": "Module Template",
+  "version": "0.0.1",
+  "coreApiVersion": "1.x",
+  "type": "export",
+  "permissionsNeeded": ["downloads"],
+  "settingsSchema": {}
+}

@@ -1,0 +1,16 @@
+{
+  "id": "publisher-gdocs",
+  "name": "Google Docs Publisher",
+  "version": "1.0.0",
+  "coreApiVersion": "1.x",
+  "type": "publish",
+  "permissionsNeeded": ["identity", "https://www.googleapis.com/*"],
+  "settingsSchema": {
+    "type": "object",
+    "properties": {
+      "accessToken": { "type": "string" },
+      "title": { "type": "string" }
+    },
+    "required": ["accessToken"]
+  }
+}
