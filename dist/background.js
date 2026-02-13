@@ -1,52 +1,10 @@
-const modules = {
-  "exporter-json": {
-    async render(ccd) {
-      return { kind: "download", filename: `chat-export-${Date.now()}.json`, mime: "application/json", text: JSON.stringify(ccd, null, 2) };
-    }
-  },
-  "exporter-markdown": {
-    async render(ccd) {
-      const lines = [];
-      for (const message of ccd.messages) {
-        lines.push(`## ${message.role.toUpperCase()}`);
-        for (const block of message.blocks) {
-          if (block.type === "paragraph") lines.push(block.text);
-          else if (block.type === "heading") lines.push(`${"#".repeat(block.level)} ${block.text}`);
-          else if (block.type === "code") lines.push(`\`\`\`${block.lang || ""}\n${block.text}\n\`\`\``);
-          else if (block.type === "quote") lines.push(`> ${block.text}`);
-          else if (block.type === "table" && block.rows.length) {
-            const [header, ...body] = block.rows;
-            lines.push(`| ${header.join(" | ")} |`);
-            lines.push(`| ${header.map(() => "---").join(" | ")} |`);
-            body.forEach((r) => lines.push(`| ${r.join(" | ")} |`));
-          }
-        }
-      }
-      return { kind: "download", filename: `chat-export-${Date.now()}.md`, mime: "text/markdown", text: lines.join("\n") };
-    }
-  },
-  "publisher-gdocs": {
-    async render(ccd) {
-      return {
-        kind: "publish",
-        publishResult: { displayUrl: "https://docs.google.com", id: "token-required" },
-        text: `Configure OAuth token in source build to publish ${ccd.messages.length} messages.`
-      };
-    }
-  }
-};
+const c={id:"exporter-json",name:"CCD JSON",version:"1.0.0",coreApiVersion:"1.x",type:"export",permissionsNeeded:["downloads"],async render(e){return{kind:"download",filename:`chat-export-${Date.now()}.json`,mime:"application/json",text:JSON.stringify(e,null,2)}}};function p(e){switch(e.type){case"paragraph":return e.text;case"heading":return`${"#".repeat(Math.max(1,Math.min(6,e.level)))} ${e.text}`;case"quote":return`> ${e.text}`;case"code":return`\`\`\`${e.lang||""}
+${e.text}
+\`\`\``;case"table":{if(!e.rows.length)return"";const[n,...o]=e.rows,t=n.map(()=>"---");return[`| ${n.join(" | ")} |`,`| ${t.join(" | ")} |`,...o.map(s=>`| ${s.join(" | ")} |`)].join(`
+`)}case"math":return`$$${e.latex}$$`;case"image":return`![${e.alt||"image"}](${e.assetId})`;default:return""}}const l={id:"exporter-markdown",name:"Markdown",version:"1.0.0",coreApiVersion:"1.x",type:"export",permissionsNeeded:["downloads"],async render(e){const n=[];for(const o of e.messages){n.push(`## ${o.role.toUpperCase()}`);for(const t of o.blocks)n.push(p(t));n.push("")}return{kind:"download",filename:`chat-export-${Date.now()}.md`,mime:"text/markdown",text:n.join(`
+`)}}},u={id:"publisher-gdocs",name:"Google Docs",version:"1.0.0",coreApiVersion:"1.x",type:"publish",permissionsNeeded:["identity","https://www.googleapis.com/*"],settingsSchema:{type:"object",properties:{accessToken:{type:"string",title:"OAuth Access Token"},title:{type:"string",title:"Document Title"}},required:["accessToken"]},async render(e,n){const{accessToken:o,title:t}=n;if(!o)throw new Error("Google Docs access token is required.");const r=await(await fetch("https://docs.googleapis.com/v1/documents",{method:"POST",headers:{Authorization:`Bearer ${o}`,"Content-Type":"application/json"},body:JSON.stringify({title:t||e.meta.title})})).json(),d=e.messages.map(a=>`${a.role.toUpperCase()}
+${a.blocks.map(i=>"text"in i?i.text:i.type).join(`
+`)}`).join(`
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message.type !== "RUN_MODULE") return;
-  (async () => {
-    const plugin = modules[message.moduleId];
-    if (!plugin) throw new Error("Unknown module");
-    const result = await plugin.render(message.ccd);
-    if (result.kind === "download") {
-      const url = URL.createObjectURL(new Blob([result.text || ""], { type: result.mime || "text/plain" }));
-      await chrome.downloads.download({ url, filename: result.filename || "chat-export.txt", saveAs: true });
-    }
-    sendResponse({ ok: true, message: result.filename || result.publishResult?.displayUrl || result.kind });
-  })().catch((error) => sendResponse({ ok: false, error: error.message || String(error) }));
-  return true;
-});
+`);return await fetch(`https://docs.googleapis.com/v1/documents/${r.documentId}:batchUpdate`,{method:"POST",headers:{Authorization:`Bearer ${o}`,"Content-Type":"application/json"},body:JSON.stringify({requests:[{insertText:{location:{index:1},text:`${d}
+`}}]})}),{kind:"publish",publishResult:{id:r.documentId,displayUrl:`https://docs.google.com/document/d/${r.documentId}/edit`}}}},m=[c,l,u];function h(e){return m.find(n=>n.id===e)}chrome.runtime.onMessage.addListener((e,n,o)=>{if(e.type==="RUN_MODULE")return w(e.moduleId,e.ccd).then(t=>o({ok:!0,message:f(t),result:t})).catch(t=>o({ok:!1,error:t instanceof Error?t.message:String(t)})),!0});async function w(e,n){const o=h(e);if(!o)throw new Error(`Unknown module: ${e}`);const t=await o.render(n,{},{localOnlyMode:!1});if(t.kind==="download"){const s=new Blob([t.text||""],{type:t.mime||"text/plain"}),r=URL.createObjectURL(s);await chrome.downloads.download({url:r,filename:t.filename||"chat-export.txt",saveAs:!0})}return t.kind==="openTab"&&t.openUrl&&await chrome.tabs.create({url:t.openUrl}),t}function f(e){var n;return e.kind==="publish"?((n=e.publishResult)==null?void 0:n.displayUrl)||"Published":e.kind==="download"?e.filename||"Downloaded":e.kind}

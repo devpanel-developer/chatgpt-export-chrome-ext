@@ -1,3 +1,1 @@
-const checkbox = document.querySelector('#local-only');
-chrome.storage.sync.get(['localOnlyMode'], (items) => { checkbox.checked = Boolean(items.localOnlyMode); });
-checkbox.addEventListener('change', ()=> chrome.storage.sync.set({ localOnlyMode: checkbox.checked }));
+import"./chunks/modulepreload-polyfill-B5Qt9EMX.js";const e=document.querySelector("#local-only");chrome.storage.sync.get(["localOnlyMode"],o=>{e.checked=!!o.localOnlyMode});e.addEventListener("change",()=>{chrome.storage.sync.set({localOnlyMode:e.checked})});

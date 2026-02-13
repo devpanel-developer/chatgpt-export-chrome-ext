@@ -1,81 +1,18 @@
-const state = { selectMode: false, includeUser: true, includeAssistant: true, selectedIds: new Set(), scope: "all" };
-const EMAIL_REGEX = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
-const TOKEN_REGEX = /(sk-[A-Za-z0-9]{20,}|AIza[0-9A-Za-z\-_]{35}|ghp_[A-Za-z0-9]{36})/g;
-
-function scrub(text, options) {
-  let value = text;
-  if (options.maskEmails) value = value.replace(EMAIL_REGEX, "[REDACTED_EMAIL]");
-  if (options.maskSecrets) value = value.replace(TOKEN_REGEX, "[REDACTED_SECRET]");
-  return value;
-}
-
-function buildCCD() {
-  const containers = [...document.querySelectorAll("[data-message-author-role]")];
-  const messages = containers.map((el, index) => {
-    const role = el.getAttribute("data-message-author-role") === "user" ? "user" : "assistant";
-    const id = el.dataset.messageId || `msg-${index}`;
-    if (state.scope === "partial" && !state.selectedIds.has(id)) return null;
-    if ((role === "user" && !state.includeUser) || (role === "assistant" && !state.includeAssistant)) return null;
-    const blocks = [];
-    el.querySelectorAll("h1,h2,h3,h4,h5,h6,p,pre,blockquote,table").forEach((node) => {
-      if (node.tagName === "P") blocks.push({ type: "paragraph", text: node.textContent?.trim() || "" });
-      if (/H[1-6]/.test(node.tagName)) blocks.push({ type: "heading", level: Number(node.tagName[1]), text: node.textContent?.trim() || "" });
-      if (node.tagName === "PRE") blocks.push({ type: "code", text: node.textContent || "" });
-      if (node.tagName === "BLOCKQUOTE") blocks.push({ type: "quote", text: node.textContent || "" });
-      if (node.tagName === "TABLE") {
-        const rows = [...node.querySelectorAll("tr")].map((tr) => [...tr.querySelectorAll("th,td")].map((td) => td.textContent?.trim() || ""));
-        blocks.push({ type: "table", rows });
-      }
-    });
-    if (!blocks.length) blocks.push({ type: "paragraph", text: el.textContent?.trim() || "" });
-    return { id, role, blocks };
-  }).filter(Boolean);
-
-  return {
-    meta: { sourceApp: "chatgpt", url: location.href, title: document.title, capturedAtISO: new Date().toISOString(), selection: { scope: state.scope, messageIds: messages.map((m) => m.id) } },
-    messages,
-    assets: [],
-    annotations: { warnings: [], redactions: [] }
-  };
-}
-
-(function init(){
-  const panel = document.createElement("aside");
-  panel.style.cssText = "position:fixed;bottom:16px;right:16px;z-index:999999;background:#111;color:#fff;padding:12px;border-radius:10px;width:280px;font:12px sans-serif;";
-  panel.innerHTML = `<button id="cep-toggle">Select mode: off</button><div><label><input type="checkbox" id="cep-user" checked> Include user</label></div><div><label><input type="checkbox" id="cep-assistant" checked> Include assistant</label></div><div><label><input type="checkbox" id="cep-mask-emails"> Mask emails</label></div><div><label><input type="checkbox" id="cep-mask-secrets"> Mask tokens/keys</label></div><div><label><input type="checkbox" id="cep-remove-images"> Remove images</label></div><div><select id="cep-module"><option value="exporter-markdown">Markdown</option><option value="exporter-json">JSON</option><option value="publisher-gdocs">Google Docs</option></select></div><button id="cep-preview">Preview</button><button id="cep-export">Run module</button><pre id="cep-status"></pre>`;
-  document.body.appendChild(panel);
-  const status = panel.querySelector("#cep-status");
-
-  panel.querySelector("#cep-toggle").addEventListener("click", () => {
-    state.selectMode = !state.selectMode;
-    state.scope = state.selectMode ? "partial" : "all";
-    panel.querySelector("#cep-toggle").textContent = `Select mode: ${state.selectMode ? "on" : "off"}`;
-    document.querySelectorAll(".cep-checkbox").forEach((e) => e.remove());
-    if (state.selectMode) {
-      [...document.querySelectorAll("[data-message-author-role]")].forEach((node, index) => {
-        const id = node.dataset.messageId || `msg-${index}`;
-        const cb = document.createElement("input"); cb.type = "checkbox"; cb.className = "cep-checkbox"; cb.style.marginRight = "8px";
-        cb.addEventListener("change",()=> cb.checked ? state.selectedIds.add(id) : state.selectedIds.delete(id));
-        node.prepend(cb);
-      });
-    }
-  });
-  panel.querySelector("#cep-user").addEventListener("change", (e) => state.includeUser = e.target.checked);
-  panel.querySelector("#cep-assistant").addEventListener("change", (e) => state.includeAssistant = e.target.checked);
-
-  panel.querySelector("#cep-preview").addEventListener("click", () => {
-    status.textContent = `${buildCCD().messages.length} messages selected`;
-  });
-
-  panel.querySelector("#cep-export").addEventListener("click", async () => {
-    const ccd = buildCCD();
-    const opts = { maskEmails: panel.querySelector("#cep-mask-emails").checked, maskSecrets: panel.querySelector("#cep-mask-secrets").checked, removeImages: panel.querySelector("#cep-remove-images").checked };
-    ccd.messages.forEach((m)=>m.blocks = m.blocks.filter((b)=> opts.removeImages ? b.type !== "image" : true).map((b)=>{
-      if (b.type === "paragraph" || b.type === "quote" || b.type === "heading") b.text = scrub(b.text, opts);
-      if (b.type === "code") b.text = scrub(b.text, opts);
-      return b;
-    }));
-    const response = await chrome.runtime.sendMessage({ type: "RUN_MODULE", moduleId: panel.querySelector("#cep-module").value, ccd });
-    status.textContent = response.ok ? `Success: ${response.message}` : `Error: ${response.error}`;
-  });
-})();
+function d(t){const c=Array.from(document.querySelectorAll("[data-message-author-role]")).map((e,o)=>{const r=e.getAttribute("data-message-author-role")==="user"?"user":"assistant",n=e.dataset.messageId||`msg-${o}`;if(t.scope==="partial"&&!t.selectedIds.has(n)||r==="user"&&!t.includeUser||r==="assistant"&&!t.includeAssistant)return null;const l=m(e);return{id:n,role:r,blocks:l}}).filter(e=>!!e);return{meta:{sourceApp:"chatgpt",url:location.href,title:document.title,capturedAtISO:new Date().toISOString(),selection:{scope:t.scope,messageIds:c.map(e=>e.id)}},messages:c,assets:[],annotations:{warnings:[],redactions:[]}}}function m(t){var c;const s=[];return t.querySelectorAll("h1,h2,h3,h4,h5,h6,p,pre,blockquote,table").forEach(e=>{var o,r;if(e.tagName==="P"&&s.push({type:"paragraph",text:((o=e.textContent)==null?void 0:o.trim())||""}),/H[1-6]/.test(e.tagName)&&s.push({type:"heading",level:Number(e.tagName[1]),text:((r=e.textContent)==null?void 0:r.trim())||""}),e.tagName==="PRE"&&s.push({type:"code",text:e.textContent||""}),e.tagName==="BLOCKQUOTE"&&s.push({type:"quote",text:e.textContent||""}),e.tagName==="TABLE"){const n=Array.from(e.querySelectorAll("tr")).map(l=>Array.from(l.querySelectorAll("th,td")).map(p=>{var i;return((i=p.textContent)==null?void 0:i.trim())||""}));s.push({type:"table",rows:n})}}),s.length||s.push({type:"paragraph",text:((c=t.textContent)==null?void 0:c.trim())||""}),s}const h=/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,g=/(sk-[A-Za-z0-9]{20,}|AIza[0-9A-Za-z\-_]{35}|ghp_[A-Za-z0-9]{36})/g;function b(t,s){const c=structuredClone(t);for(const e of c.messages){for(const o of e.blocks)(o.type==="paragraph"||o.type==="quote"||o.type==="heading")&&(o.text=u(o.text,s)),o.type==="code"&&(o.text=u(o.text,s));s.removeImages&&(e.blocks=e.blocks.filter(o=>o.type!=="image"))}return c}function u(t,s){let c=t;return s.maskEmails&&(c=c.replace(h,"[REDACTED_EMAIL]")),s.maskSecrets&&(c=c.replace(g,"[REDACTED_SECRET]")),c}const a={selectMode:!1,includeUser:!0,includeAssistant:!0,selectedIds:new Set,scope:"all"};function k(){const t=document.createElement("aside");t.setAttribute("aria-label","Chat export controls"),t.style.cssText="position:fixed;bottom:16px;right:16px;z-index:999999;background:#111;color:#fff;padding:12px;border-radius:10px;width:280px;font:12px sans-serif;",t.innerHTML=`
+    <button id="cep-toggle" aria-label="Toggle select mode">Select mode: off</button>
+    <div><label><input type="checkbox" id="cep-user" checked> Include user</label></div>
+    <div><label><input type="checkbox" id="cep-assistant" checked> Include assistant</label></div>
+    <div><label><input type="checkbox" id="cep-mask-emails"> Mask emails</label></div>
+    <div><label><input type="checkbox" id="cep-mask-secrets"> Mask tokens/keys</label></div>
+    <div><label><input type="checkbox" id="cep-remove-images"> Remove images</label></div>
+    <div><label>Module
+      <select id="cep-module">
+        <option value="exporter-markdown">Markdown</option>
+        <option value="exporter-json">JSON</option>
+        <option value="publisher-gdocs">Google Docs</option>
+      </select>
+    </label></div>
+    <button id="cep-preview">Preview selection</button>
+    <button id="cep-export">Run module</button>
+    <pre id="cep-status" aria-live="polite" style="white-space:pre-wrap;max-height:120px;overflow:auto"></pre>
+  `,document.body.appendChild(t);const s=t.querySelector("#cep-toggle"),c=t.querySelector("#cep-status");s.addEventListener("click",()=>{a.selectMode=!a.selectMode,a.scope=a.selectMode?"partial":"all",s.textContent=`Select mode: ${a.selectMode?"on":"off"}`,x()}),t.querySelector("#cep-user").addEventListener("change",e=>{a.includeUser=e.target.checked}),t.querySelector("#cep-assistant").addEventListener("change",e=>{a.includeAssistant=e.target.checked}),t.querySelector("#cep-preview").addEventListener("click",()=>{const e=d({scope:a.scope,includeUser:a.includeUser,includeAssistant:a.includeAssistant,selectedIds:a.selectedIds});c.textContent=`${e.messages.length} messages selected`}),t.querySelector("#cep-export").addEventListener("click",async()=>{const e=b(d({scope:a.scope,includeUser:a.includeUser,includeAssistant:a.includeAssistant,selectedIds:a.selectedIds}),{maskEmails:t.querySelector("#cep-mask-emails").checked,maskSecrets:t.querySelector("#cep-mask-secrets").checked,removeImages:t.querySelector("#cep-remove-images").checked}),o=t.querySelector("#cep-module").value,r=await chrome.runtime.sendMessage({type:"RUN_MODULE",moduleId:o,ccd:e});c.textContent=r!=null&&r.ok?`Success: ${r.message}`:`Error: ${(r==null?void 0:r.error)||"Unknown"}`})}function x(){document.querySelectorAll(".cep-checkbox").forEach(t=>t.remove()),a.selectMode&&Array.from(document.querySelectorAll("[data-message-author-role]")).forEach((t,s)=>{const c=t.dataset.messageId||`msg-${s}`,e=document.createElement("input");e.type="checkbox",e.className="cep-checkbox",e.style.cssText="margin-right:8px;outline:2px solid #19c37d",e.checked=a.selectedIds.has(c),e.setAttribute("aria-label",`Select message ${s+1}`),e.addEventListener("change",()=>{e.checked?a.selectedIds.add(c):a.selectedIds.delete(c)}),t.prepend(e)})}k();
